@@ -2,7 +2,9 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { http } from '../../api'
+import { adminPath } from '../../adminPath'
 import { useContextStore } from '../../stores/context'
+import RichText from '../../components/RichText.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -11,10 +13,29 @@ const categories = ref([])
 const error = ref('')
 const saved = ref('')
 const loading = ref(false)
-const bodyEl = ref(null)
+const editorRef = ref(null)
+const fileEl = ref(null)
+const coverEl = ref(null)
+const assets = ref([])
 const form = reactive(blank('article'))
 
 const isNew = computed(() => route.name === 'content-new')
+const snippetTitle = computed(() => {
+  const page = (form.seo_title || form.title || '未命名').trim()
+  const site = ctx.current?.title || ''
+  if (!site || page === site) return page
+  return `${page} - ${site}`
+})
+const snippetDesc = computed(() => (form.seo_description || form.summary || '').trim() || '填写摘要或 SEO 描述后，这里会显示搜索结果里的说明。')
+const snippetURL = computed(() => {
+  const domains = ctx.current?.domains || []
+  const primary = domains.find((item) => item.is_primary) || domains[0]
+  const host = primary?.host || '主域名'
+  const slug = form.slug || '…'
+  const prefix = form.type === 'page' ? '/page/' : '/article/'
+  const ext = ctx.current?.url_mode === 'html' ? '.html' : ''
+  return `${host}${prefix}${slug}${ext}`
+})
 
 function blank(type) {
   return {
@@ -42,11 +63,21 @@ async function loadCategories() {
   categories.value = res.data || []
 }
 
+async function loadAssets() {
+  if (!ctx.siteId) {
+    assets.value = []
+    return
+  }
+  const res = await http.get(`/api/sites/${ctx.siteId}/assets`)
+  assets.value = (res.data || []).filter((item) => String(item.mime || '').startsWith('image/')).slice(0, 12)
+}
+
 async function load() {
   error.value = ''
   loading.value = true
   try {
     await loadCategories()
+    await loadAssets()
     if (isNew.value) {
       Object.assign(form, blank(route.query.type === 'page' ? 'page' : 'article'))
       return
@@ -60,21 +91,28 @@ async function load() {
   }
 }
 
-function insertLink() {
-  insert('<a href="https://">', '</a>')
-}
-
-function insert(before, after) {
-  const el = bodyEl.value
-  const picked = '文字'
-  if (!el) {
-    form.body += before + picked + after
+function placeAsset(asset, asCover) {
+  if (asCover) {
+    form.cover = asset.url
     return
   }
-  const start = el.selectionStart ?? form.body.length
-  const end = el.selectionEnd ?? form.body.length
-  const selected = form.body.slice(start, end) || picked
-  form.body = form.body.slice(0, start) + before + selected + after + form.body.slice(end)
+  editorRef.value?.insertAsset(asset)
+}
+
+async function uploadPicked(event, asCover) {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  if (!file || !ctx.siteId) return
+  error.value = ''
+  try {
+    const body = new FormData()
+    body.append('file', file)
+    const res = await http.post(`/api/sites/${ctx.siteId}/assets`, body)
+    placeAsset(res.data, asCover)
+    await loadAssets()
+  } catch (err) {
+    error.value = err.message
+  }
 }
 
 async function save() {
@@ -87,7 +125,7 @@ async function save() {
     category_id: form.type === 'page' ? 0 : Number(form.category_id || 0),
     summary: form.summary,
     cover: form.cover,
-    body: form.body,
+    body: editorRef.value?.html() ?? form.body,
     status: form.status,
     seo_title: form.seo_title,
     seo_keywords: form.seo_keywords,
@@ -98,7 +136,7 @@ async function save() {
     if (isNew.value) {
       const res = await http.post(`/api/sites/${ctx.siteId}/contents`, payload)
       saved.value = '已创建'
-      await router.replace(`/admin/contents/${res.data.id}`)
+      await router.replace(adminPath(`/contents/${res.data.id}`))
       return
     }
     await http.put(`/api/contents/${route.params.id}`, payload)
@@ -110,7 +148,7 @@ async function save() {
 
 watch(() => route.fullPath, () => load(), { immediate: true })
 watch(() => ctx.siteId, (next, prev) => {
-  if (prev && next !== prev) router.push('/admin/contents')
+  if (prev && next !== prev) router.push(adminPath('/contents'))
 })
 </script>
 
@@ -119,9 +157,9 @@ watch(() => ctx.siteId, (next, prev) => {
     <div class="page-head">
       <div>
         <h1>{{ isNew ? '新建内容' : '编辑内容' }}</h1>
-        <p class="muted">正文使用 HTML。保存后只会出现在当前站点。</p>
+        <p class="muted">正文直接排版。保存后只会出现在当前站点。</p>
       </div>
-      <router-link class="btn" to="/admin/contents">返回列表</router-link>
+      <router-link class="btn" :to="adminPath('/contents')">返回列表</router-link>
     </div>
     <p v-if="!ctx.siteId" class="card empty">先选择或创建一个站点。</p>
     <form v-else class="card" @submit.prevent="save">
@@ -150,25 +188,38 @@ watch(() => ctx.siteId, (next, prev) => {
           </select>
         </label>
         <label class="field wide"><span>摘要</span><textarea class="hosts" v-model="form.summary"></textarea></label>
-        <label class="field wide"><span>封面地址</span><input v-model="form.cover" placeholder="https:// 或站内路径，可留空" /></label>
+        <label class="field wide">
+          <span>封面地址</span>
+          <input v-model="form.cover" placeholder="https:// 或站内路径，可留空" />
+        </label>
+        <div class="field wide">
+          <button class="btn small" type="button" @click="coverEl?.click()">上传封面</button>
+          <input ref="coverEl" class="hidden-file" type="file" accept="image/jpeg,image/png,image/gif,image/webp" @change="uploadPicked($event, true)" />
+        </div>
       </div>
-      <p v-if="form.type === 'article' && categories.length === 0" class="msg">这个站点还没有栏目。<router-link to="/admin/categories">先去创建栏目</router-link></p>
-      <div class="editor-tools">
-        <button class="btn small" type="button" @click="insert('<h2>', '</h2>')">标题</button>
-        <button class="btn small" type="button" @click="insert('<p>', '</p>')">段落</button>
-        <button class="btn small" type="button" @click="insert('<ul>\n  <li>', '</li>\n</ul>')">列表</button>
-        <button class="btn small" type="button" @click="insertLink">链接</button>
-      </div>
-      <div class="editor">
-        <textarea ref="bodyEl" v-model="form.body" placeholder="在这里写 HTML 正文"></textarea>
-        <div class="prose preview" v-html="form.body || '<p class=&quot;muted&quot;>正文预览</p>'"></div>
+      <p v-if="form.type === 'article' && categories.length === 0" class="msg">这个站点还没有栏目。<router-link :to="adminPath('/categories')">先去创建栏目</router-link></p>
+      <RichText ref="editorRef" v-model="form.body">
+        <template #tools>
+          <button class="btn small" type="button" @click="fileEl?.click()">插入图片</button>
+          <input ref="fileEl" class="hidden-file" type="file" accept="image/jpeg,image/png,image/gif,image/webp,application/pdf" @change="uploadPicked($event, false)" />
+        </template>
+      </RichText>
+      <div v-if="assets.length" class="pick-row">
+        <button v-for="asset in assets" :key="asset.id" type="button" :title="asset.name" @click="placeAsset(asset, false)">
+          <img :src="asset.url" :alt="asset.name" />
+        </button>
       </div>
       <details class="seo">
         <summary>搜索引擎信息</summary>
+        <div class="snippet">
+          <small>{{ snippetURL }}</small>
+          <strong>{{ snippetTitle }}</strong>
+          <p>{{ snippetDesc }}</p>
+        </div>
         <div class="form-grid">
-          <label class="field"><span>SEO 标题</span><input v-model="form.seo_title" /></label>
+          <label class="field"><span>SEO 标题</span><input v-model="form.seo_title" placeholder="留空则使用内容标题" /></label>
           <label class="field"><span>SEO 关键词</span><input v-model="form.seo_keywords" /></label>
-          <label class="field wide"><span>SEO 描述</span><textarea class="hosts" v-model="form.seo_description"></textarea></label>
+          <label class="field wide"><span>SEO 描述</span><textarea class="hosts" v-model="form.seo_description" placeholder="留空则使用摘要"></textarea></label>
         </div>
       </details>
       <p v-if="error" class="msg error">{{ error }}</p>

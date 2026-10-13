@@ -1,6 +1,9 @@
 package database
 
 import (
+	"os"
+
+	"anywaycms/backend/internal/adminpath"
 	"anywaycms/backend/internal/model"
 
 	"gorm.io/gorm"
@@ -27,4 +30,19 @@ func EnsureSettings(db *gorm.DB) error {
 		"track_visits": 1,
 		"retain_days":  90,
 	}).Error
+}
+
+func EnsureAdminPath(db *gorm.DB) error {
+	var row model.Setting
+	if err := db.Order("id asc").First(&row).Error; err != nil {
+		return err
+	}
+	if _, msg := adminpath.Normalize(row.AdminPath); msg == "" {
+		return nil
+	}
+	next, msg := adminpath.Normalize(os.Getenv("ADMIN_PATH"))
+	if msg != "" {
+		next = adminpath.Random()
+	}
+	return db.Model(&row).Update("admin_path", next).Error
 }

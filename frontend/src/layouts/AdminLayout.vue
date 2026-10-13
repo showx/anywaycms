@@ -2,8 +2,10 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { http } from '../api'
+import { applyHead } from '../meta'
 import { useAuthStore } from '../stores/auth'
 import { useContextStore } from '../stores/context'
+import { adminPath } from '../adminPath'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -16,6 +18,7 @@ onMounted(async () => {
     const res = await http.get('/api/system')
     systemName.value = res.data.system_name || systemName.value
     systemNotice.value = res.data.system_notice || systemNotice.value
+    applyHead({ title: systemName.value, robots: 'noindex,nofollow', site_name: systemName.value })
   } catch {
     // 名称读取失败时继续使用默认文案。
   }
@@ -27,7 +30,7 @@ function onSite(event) {
 
 function logout() {
   auth.logout()
-  router.push('/admin/login')
+  router.push(adminPath('/login'))
 }
 </script>
 
@@ -39,14 +42,16 @@ function logout() {
         <small>{{ systemNotice }}</small>
       </div>
       <nav class="side-nav">
-        <router-link to="/admin" exact-active-class="on">概览</router-link>
-        <router-link to="/admin/sites" active-class="on">站点与域名</router-link>
-        <router-link to="/admin/categories" active-class="on">栏目</router-link>
-        <router-link to="/admin/contents" active-class="on">内容</router-link>
-        <router-link to="/admin/menus" active-class="on">菜单</router-link>
-        <router-link to="/admin/stats" active-class="on">访问统计</router-link>
-        <router-link to="/admin/settings" active-class="on">系统设置</router-link>
-        <router-link to="/admin/password" active-class="on">修改密码</router-link>
+        <router-link :to="adminPath('')" exact-active-class="on">概览</router-link>
+        <router-link :to="adminPath('/sites')" active-class="on">站点与域名</router-link>
+        <router-link :to="adminPath('/categories')" active-class="on">栏目</router-link>
+        <router-link :to="adminPath('/contents')" active-class="on">内容</router-link>
+        <router-link :to="adminPath('/assets')" active-class="on">附件</router-link>
+        <router-link :to="adminPath('/menus')" active-class="on">菜单</router-link>
+        <router-link :to="adminPath('/stats')" active-class="on">访问统计</router-link>
+        <router-link :to="adminPath('/seo')" active-class="on">SEO</router-link>
+        <router-link :to="adminPath('/settings')" active-class="on">系统设置</router-link>
+        <router-link :to="adminPath('/password')" active-class="on">修改密码</router-link>
       </nav>
     </aside>
     <div class="content">
@@ -57,7 +62,7 @@ function logout() {
             <option v-for="site in ctx.sites" :key="site.id" :value="site.id">{{ site.title }}</option>
           </select>
         </label>
-        <router-link v-else to="/admin/sites">先创建站点</router-link>
+        <router-link v-else :to="adminPath('/sites')">先创建站点</router-link>
         <span class="grow"></span>
         <span class="muted">{{ auth.username }}</span>
         <button class="btn small" type="button" @click="logout">退出</button>

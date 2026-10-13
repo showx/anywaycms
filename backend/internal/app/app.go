@@ -50,7 +50,7 @@ func Run() error {
 		log.Printf("还没有前端构建。可在 frontend 目录执行 npm install && npm run build，或 npm run dev 后打开 http://127.0.0.1:5173")
 	}
 
-	engine := router.New(db, cfg.JWTSecret, cfg.StaticDir)
+	engine := router.New(db, cfg.JWTSecret, cfg.StaticDir, cfg.UploadDir)
 	server := &http.Server{
 		Addr:              cfg.Addr,
 		Handler:           engine,
@@ -60,7 +60,12 @@ func Run() error {
 	errCh := make(chan error, 1)
 	go func() {
 		log.Printf("站群 CMS 已启动：%s", listenURL(cfg.Addr))
-		log.Printf("后台：%s/admin ，首次账号 admin / admin123（已有数据库不会重置密码）", listenURL(cfg.Addr))
+		var setting model.Setting
+		adminURL := listenURL(cfg.Addr)
+		if err := db.Order("id asc").First(&setting).Error; err == nil && setting.AdminPath != "" {
+			adminURL += "/" + setting.AdminPath
+		}
+		log.Printf("后台入口：%s ，账号 admin / admin123（已有数据库不会重置密码）", adminURL)
 		errCh <- server.ListenAndServe()
 	}()
 

@@ -10,23 +10,29 @@ type Config struct {
 	DBPath    string
 	JWTSecret string
 	StaticDir string
+	UploadDir string
 }
 
 func Load() Config {
 	root := projectRoot()
 	dbPath := env("DB_PATH", filepath.Join("data", "anywaycms.db"))
 	staticDir := env("STATIC_DIR", filepath.Join("frontend", "dist"))
+	uploadDir := env("UPLOAD_DIR", filepath.Join("data", "uploads"))
 	if !filepath.IsAbs(dbPath) {
 		dbPath = filepath.Join(root, dbPath)
 	}
 	if !filepath.IsAbs(staticDir) {
 		staticDir = filepath.Join(root, staticDir)
 	}
+	if !filepath.IsAbs(uploadDir) {
+		uploadDir = filepath.Join(root, uploadDir)
+	}
 	return Config{
 		Addr:      env("ADDR", ":8080"),
 		DBPath:    dbPath,
 		JWTSecret: env("JWT_SECRET", "anywaycms-dev-secret-change-me"),
 		StaticDir: staticDir,
+		UploadDir: uploadDir,
 	}
 }
 

@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { http } from '../../api'
+import { adminPath } from '../../adminPath'
 import { useContextStore } from '../../stores/context'
 import { parseTheme, themeJSON, themePresets } from '../../theme'
 
@@ -206,6 +207,7 @@ onMounted(async () => {
           <label class="field"><span>电话</span><input v-model="form.phone" /></label>
           <label class="field wide"><span>简介</span><textarea class="hosts" v-model="form.description"></textarea></label>
           <label class="field"><span>关键词</span><input v-model="form.keywords" /></label>
+          <p class="muted wide">搜索结果标题、是否收录和站点地图在 <router-link :to="adminPath('/seo')">SEO</router-link> 里设置。</p>
           <label class="field"><span>备案号</span><input v-model="form.icp" /></label>
           <label class="field wide"><span>地址</span><input v-model="form.address" /></label>
           <div class="field wide">

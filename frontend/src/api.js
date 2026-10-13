@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { adminPath, isAdminLocation } from './adminPath'
 import { currentSiteHost } from './siteHost'
 
 export const http = axios.create()
@@ -16,10 +17,11 @@ http.interceptors.response.use(
   (error) => {
     const status = error.response?.status
     const message = error.response?.data?.message || '网络请求失败'
-    if (status === 401 && window.location.pathname.startsWith('/admin') && window.location.pathname !== '/admin/login') {
+    const loginPath = adminPath('/login')
+    if (status === 401 && loginPath && isAdminLocation(window.location.pathname) && window.location.pathname !== loginPath) {
       localStorage.removeItem('cms_token')
       const redirect = encodeURIComponent(window.location.pathname + window.location.search)
-      window.location.assign(`/admin/login?redirect=${redirect}`)
+      window.location.assign(`${loginPath}?redirect=${redirect}`)
     }
     const wrapped = new Error(message)
     wrapped.status = status

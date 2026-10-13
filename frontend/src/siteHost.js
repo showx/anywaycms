@@ -18,6 +18,15 @@ export function isPreviewing() {
   return currentSiteHost() !== window.location.hostname
 }
 
+export function contentPath(kind, slug, mode) {
+  const path = `/${kind}/${slug}`
+  return mode === 'html' ? `${path}.html` : path
+}
+
+export function routeSlug(value) {
+  return String(value || '').replace(/\.html$/i, '')
+}
+
 export function publicPath(path) {
   if (!path) return '/'
   if (/^https?:\/\//.test(path)) return path

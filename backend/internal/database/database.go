@@ -36,6 +36,7 @@ func Open(path string) (*gorm.DB, error) {
 		&model.Menu{},
 		&model.Setting{},
 		&model.Visit{},
+		&model.Asset{},
 	); err != nil {
 		return nil, err
 	}
@@ -43,6 +44,9 @@ func Open(path string) (*gorm.DB, error) {
 		return nil, err
 	}
 	if err := EnsureSettings(db); err != nil {
+		return nil, err
+	}
+	if err := EnsureAdminPath(db); err != nil {
 		return nil, err
 	}
 	return db, nil

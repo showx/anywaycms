@@ -6,6 +6,7 @@ import (
 
 	"anywaycms/backend/internal/middleware"
 	"anywaycms/backend/internal/model"
+	"anywaycms/backend/internal/urlpath"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -39,7 +40,7 @@ func (h *Handler) Bootstrap(c *gin.Context) {
 	}
 	publicMenus := make([]PublicMenu, 0, len(menus))
 	for _, menu := range menus {
-		url := h.menuURL(menu)
+		url := h.menuURL(menu, site.URLMode)
 		if url == "" {
 			continue
 		}
@@ -182,7 +183,7 @@ func (h *Handler) publicContent(c *gin.Context, typ string) {
 	})
 }
 
-func (h *Handler) menuURL(menu model.Menu) string {
+func (h *Handler) menuURL(menu model.Menu, mode string) string {
 	switch menu.LinkType {
 	case "home":
 		return "/"
@@ -196,16 +197,13 @@ func (h *Handler) menuURL(menu model.Menu) string {
 		if err := h.db.Where("id = ? AND site_id = ?", menu.LinkID, menu.SiteID).First(&cat).Error; err != nil {
 			return ""
 		}
-		return "/category/" + cat.Slug
+		return urlpath.Join(mode, "category", cat.Slug)
 	case "page", "article":
 		var item model.Content
 		if err := h.db.Where("id = ? AND site_id = ? AND type = ? AND status = ?", menu.LinkID, menu.SiteID, menu.LinkType, "published").First(&item).Error; err != nil {
 			return ""
 		}
-		if menu.LinkType == "page" {
-			return "/page/" + item.Slug
-		}
-		return "/article/" + item.Slug
+		return urlpath.Join(mode, menu.LinkType, item.Slug)
 	default:
 		return ""
 	}

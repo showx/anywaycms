@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"anywaycms/backend/internal/adminpath"
 	"anywaycms/backend/internal/middleware"
 	"anywaycms/backend/internal/model"
 
@@ -19,6 +20,7 @@ type settingInput struct {
 	SystemNotice string `json:"system_notice"`
 	TrackVisits  *int   `json:"track_visits"`
 	RetainDays   *int   `json:"retain_days"`
+	AdminPath    string `json:"admin_path"`
 }
 
 type visitInput struct {
@@ -47,6 +49,26 @@ func (h *Handler) loadSettings() (model.Setting, error) {
 	var row model.Setting
 	err := h.db.Order("id asc").First(&row).Error
 	return row, err
+}
+
+func (h *Handler) adminBase() string {
+	row, err := h.loadSettings()
+	if err != nil {
+		return ""
+	}
+	path, msg := adminpath.Normalize(row.AdminPath)
+	if msg != "" {
+		return ""
+	}
+	return "/" + path
+}
+
+func (h *Handler) IsAdminPath(urlPath string) bool {
+	base := h.adminBase()
+	if base == "" {
+		return false
+	}
+	return urlPath == base || strings.HasPrefix(urlPath, base+"/")
 }
 
 func (h *Handler) PublicSystem(c *gin.Context) {
@@ -106,10 +128,20 @@ func (h *Handler) UpdateSettings(c *gin.Context) {
 		}
 		retain = *in.RetainDays
 	}
+	admin := row.AdminPath
+	if strings.TrimSpace(in.AdminPath) != "" {
+		next, msg := adminpath.Normalize(in.AdminPath)
+		if msg != "" {
+			fail(c, http.StatusBadRequest, msg)
+			return
+		}
+		admin = next
+	}
 	row.SystemName = name
 	row.SystemNotice = notice
 	row.TrackVisits = track
 	row.RetainDays = retain
+	row.AdminPath = admin
 	if err := h.db.Save(&row).Error; err != nil {
 		writeDBErr(c, err)
 		return
@@ -117,6 +149,7 @@ func (h *Handler) UpdateSettings(c *gin.Context) {
 	if err := h.db.Model(&row).Updates(map[string]any{
 		"track_visits": track,
 		"retain_days":  retain,
+		"admin_path":   admin,
 	}).Error; err != nil {
 		writeDBErr(c, err)
 		return
@@ -142,7 +175,7 @@ func (h *Handler) RecordVisit(c *gin.Context) {
 	if !bindJSON(c, &in) {
 		return
 	}
-	pagePath, msg := cleanVisitPath(in.Path)
+	pagePath, msg := cleanVisitPath(in.Path, h.adminBase())
 	if msg != "" {
 		fail(c, http.StatusBadRequest, msg)
 		return
@@ -312,7 +345,7 @@ func (h *Handler) siteStats(start time.Time, siteID uint) []siteStat {
 	return out
 }
 
-func cleanVisitPath(raw string) (string, string) {
+func cleanVisitPath(raw, adminBase string) (string, string) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		raw = "/"
@@ -320,7 +353,7 @@ func cleanVisitPath(raw string) (string, string) {
 	if !strings.HasPrefix(raw, "/") || strings.Contains(raw, "..") || strings.ContainsAny(raw, "?#\\") {
 		return "", "页面路径不正确"
 	}
-	if strings.HasPrefix(raw, "/admin") || strings.HasPrefix(raw, "/api") {
+	if strings.HasPrefix(raw, "/api") || (adminBase != "" && (raw == adminBase || strings.HasPrefix(raw, adminBase+"/"))) {
 		return "", "这个路径不计入访问"
 	}
 	if len(raw) > 300 {

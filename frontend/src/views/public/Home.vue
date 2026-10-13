@@ -2,9 +2,8 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { http } from '../../api'
 import { usePublicStore } from '../../stores/public'
-import { publicPath } from '../../siteHost'
+import { contentPath, publicPath } from '../../siteHost'
 import { parseTheme } from '../../theme'
-import { setMeta, setTitle } from '../../meta'
 import { formatTime } from '../../format'
 
 const store = usePublicStore()
@@ -25,14 +24,15 @@ async function load() {
     latest.value = res.data.latest || []
     blocks.value = res.data.blocks || []
     pages.value = res.data.pages || []
-    setTitle(store.site.title)
-    setMeta('description', store.site.description || '')
-    setMeta('keywords', store.site.keywords || '')
   } catch (err) {
     error.value = err.message
   } finally {
     loading.value = false
   }
+}
+
+function toContent(kind, slug) {
+  return publicPath(contentPath(kind, slug, store.site?.url_mode))
 }
 
 onMounted(load)
@@ -54,7 +54,7 @@ watch(() => store.host, load)
         <p class="eyebrow">{{ latest[0].category_name || '最新' }}</p>
         <h1>{{ latest[0].title }}</h1>
         <p class="lede">{{ latest[0].summary }}</p>
-        <router-link :to="publicPath('/article/' + latest[0].slug)">阅读这篇</router-link>
+        <router-link :to="toContent('article', latest[0].slug)">阅读这篇</router-link>
       </section>
 
       <section class="section" v-if="shownLatest.length">
@@ -62,7 +62,7 @@ watch(() => store.host, load)
           <h2>{{ layout === 'magazine' ? '更多内容' : '最新文章' }}</h2>
         </div>
         <div class="card-grid">
-          <router-link v-for="item in shownLatest" :key="item.id" class="story" :to="publicPath('/article/' + item.slug)">
+          <router-link v-for="item in shownLatest" :key="item.id" class="story" :to="toContent('article', item.slug)">
             <p class="kicker">{{ item.category_name || '文章' }}</p>
             <h3>{{ item.title }}</h3>
             <p>{{ item.summary }}</p>
@@ -77,10 +77,10 @@ watch(() => store.host, load)
             <h2>{{ block.category.name }}</h2>
             <p class="muted">{{ block.category.description }}</p>
           </div>
-          <router-link :to="publicPath('/category/' + block.category.slug)">查看全部</router-link>
+          <router-link :to="toContent('category', block.category.slug)">查看全部</router-link>
         </div>
         <div v-if="block.articles.length" class="card-grid">
-          <router-link v-for="item in block.articles" :key="item.id" class="story" :to="publicPath('/article/' + item.slug)">
+          <router-link v-for="item in block.articles" :key="item.id" class="story" :to="toContent('article', item.slug)">
             <h3>{{ item.title }}</h3>
             <p>{{ item.summary }}</p>
           </router-link>
@@ -91,7 +91,7 @@ watch(() => store.host, load)
       <section v-if="pages.length" class="section">
         <h2>页面</h2>
         <div class="page-links">
-          <router-link v-for="item in pages" :key="item.id" :to="publicPath('/page/' + item.slug)">{{ item.title }}</router-link>
+          <router-link v-for="item in pages" :key="item.id" :to="toContent('page', item.slug)">{{ item.title }}</router-link>
         </div>
       </section>
     </template>

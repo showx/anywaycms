@@ -35,7 +35,7 @@ const devHTML = `<!DOCTYPE html>
 </body>
 </html>`
 
-func New(db *gorm.DB, secret, staticDir string) *gin.Engine {
+func New(db *gorm.DB, secret, staticDir, uploadDir string) *gin.Engine {
 	engine := gin.New()
 	engine.Use(gin.Recovery())
 	if gin.Mode() != gin.TestMode {
@@ -43,7 +43,7 @@ func New(db *gorm.DB, secret, staticDir string) *gin.Engine {
 	}
 	engine.Use(middleware.CORS(), middleware.APIHeaders())
 
-	h := handler.New(db, secret)
+	h := handler.New(db, secret, uploadDir)
 	api := engine.Group("/api")
 	api.GET("/health", h.Health)
 	api.GET("/system", h.PublicSystem)
@@ -52,6 +52,7 @@ func New(db *gorm.DB, secret, staticDir string) *gin.Engine {
 	pub := api.Group("/public", middleware.ResolveSite(db))
 	pub.GET("/bootstrap", h.Bootstrap)
 	pub.POST("/visit", h.RecordVisit)
+	pub.GET("/seo", h.PublicSEO)
 	pub.GET("/home", h.Home)
 	pub.GET("/categories/:slug", h.PublicCategory)
 	pub.GET("/articles/:slug", h.PublicArticle)
@@ -63,6 +64,8 @@ func New(db *gorm.DB, secret, staticDir string) *gin.Engine {
 	auth.GET("/settings", h.GetSettings)
 	auth.PUT("/settings", h.UpdateSettings)
 	auth.GET("/stats", h.Stats)
+	auth.GET("/sites/:id/seo", h.GetSEO)
+	auth.PUT("/sites/:id/seo", h.UpdateSEO)
 	auth.GET("/sites", h.ListSites)
 	auth.POST("/sites", h.CreateSite)
 	auth.GET("/sites/:id", h.GetSite)
@@ -80,13 +83,20 @@ func New(db *gorm.DB, secret, staticDir string) *gin.Engine {
 	auth.GET("/contents/:id", h.GetContent)
 	auth.PUT("/contents/:id", h.UpdateContent)
 	auth.DELETE("/contents/:id", h.DeleteContent)
+	auth.GET("/sites/:id/assets", h.ListAssets)
+	auth.POST("/sites/:id/assets", h.UploadAsset)
+	auth.DELETE("/assets/:id", h.DeleteAsset)
 	auth.GET("/sites/:id/menus", h.ListMenus)
 	auth.POST("/sites/:id/menus", h.CreateMenu)
 	auth.PUT("/menus/:id", h.UpdateMenu)
 	auth.DELETE("/menus/:id", h.DeleteMenu)
 
+	engine.GET("/uploads/:site/:name", h.ServeAsset)
+	engine.GET("/robots.txt", middleware.ResolveSite(db), h.Robots)
+	engine.GET("/sitemap.xml", middleware.ResolveSite(db), h.Sitemap)
+
 	if indexExists(staticDir) {
-		engine.NoRoute(spa(staticDir))
+		engine.NoRoute(spa(staticDir, h))
 	} else {
 		engine.NoRoute(func(c *gin.Context) {
 			if isAPI(c.Request.URL.Path) {
@@ -112,7 +122,7 @@ func isAPI(urlPath string) bool {
 	return clean == "/api" || strings.HasPrefix(clean, "/api/")
 }
 
-func spa(dir string) gin.HandlerFunc {
+func spa(dir string, h *handler.Handler) gin.HandlerFunc {
 	root, err := filepath.Abs(dir)
 	if err != nil {
 		root = dir
@@ -139,7 +149,25 @@ func spa(dir string) gin.HandlerFunc {
 			c.File(abs)
 			return
 		}
+		if urlPath == "/index.html" {
+			urlPath = "/"
+		}
+		if loc := h.PublicRedirect(c.Request, urlPath); loc != "" {
+			c.Redirect(http.StatusMovedPermanently, loc)
+			return
+		}
+		raw, err := os.ReadFile(index)
+		if err != nil {
+			c.Status(http.StatusInternalServerError)
+			return
+		}
 		c.Header("Cache-Control", "no-cache")
-		c.File(index)
+		var body []byte
+		if h.IsAdminPath(urlPath) {
+			body = h.InjectAdmin(raw)
+		} else {
+			body = h.InjectPublic(c.Request, raw, urlPath)
+		}
+		c.Data(http.StatusOK, "text/html; charset=utf-8", body)
 	}
 }

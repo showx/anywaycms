@@ -5,7 +5,8 @@ import { http } from '../api'
 import { usePublicStore } from '../stores/public'
 import { parseTheme } from '../theme'
 import { publicPath, isPreviewing, exitPreview } from '../siteHost'
-import { setMeta, setTitle } from '../meta'
+import { isAdminLocation } from '../adminPath'
+import { applyHead } from '../meta'
 import Missing from '../views/public/Missing.vue'
 
 const route = useRoute()
@@ -21,21 +22,31 @@ function external(url) {
   return /^https?:\/\//.test(url || '')
 }
 
+let seoSeq = 0
+
 function trackVisit() {
-  if (route.path.startsWith('/admin')) return
+  if (isAdminLocation(route.path)) return
   http.post('/api/public/visit', { path: route.path || '/', referer: document.referrer || '' }).catch(() => {})
+}
+
+async function applyPageSEO() {
+  const seq = ++seoSeq
+  const path = route.path || '/'
+  const page = route.query.page
+  try {
+    const res = await http.get('/api/public/seo', { params: { path, page: page || undefined } })
+    if (seq !== seoSeq) return
+    applyHead(res.data)
+  } catch {
+    // 域名未绑定或接口暂时失败时，保留服务器已经写好的标题。
+  }
 }
 
 watch(() => route.fullPath, () => {
   store.load()
   trackVisit()
+  applyPageSEO()
 }, { immediate: true })
-watch(site, (value) => {
-  if (!value?.title || route.name !== 'home') return
-  setTitle(value.title)
-  setMeta('description', value.description || '')
-  setMeta('keywords', value.keywords || '')
-})
 </script>
 
 <template>

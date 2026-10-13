@@ -3,8 +3,7 @@ import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { http } from '../../api'
 import { usePublicStore } from '../../stores/public'
-import { publicPath, previewQuery } from '../../siteHost'
-import { setTitle } from '../../meta'
+import { contentPath, publicPath, previewQuery, routeSlug } from '../../siteHost'
 import { formatTime } from '../../format'
 
 const route = useRoute()
@@ -22,14 +21,13 @@ async function load() {
   error.value = ''
   try {
     const page = Math.max(1, Number(route.query.page) || 1)
-    const res = await http.get(`/api/public/categories/${route.params.slug}`, {
+    const res = await http.get(`/api/public/categories/${routeSlug(route.params.slug)}`, {
       params: { page, page_size: 12 },
     })
     category.value = res.data.category
     list.value = res.data.list || []
     total.value = res.data.total || 0
     pageSize.value = res.data.page_size || 12
-    if (store.site && category.value) setTitle(`${category.value.name} - ${store.site.title}`)
   } catch (err) {
     category.value = null
     list.value = []
@@ -60,7 +58,7 @@ watch(() => [route.params.slug, route.query.page, store.host], load, { immediate
         <p class="lede">{{ category.description }}</p>
       </header>
       <div v-if="list.length" class="card-grid">
-        <router-link v-for="item in list" :key="item.id" class="story" :to="publicPath('/article/' + item.slug)">
+        <router-link v-for="item in list" :key="item.id" class="story" :to="publicPath(contentPath('article', item.slug, store.site?.url_mode))">
           <h3>{{ item.title }}</h3>
           <p>{{ item.summary }}</p>
           <small class="muted">{{ formatTime(item.published_at) }}</small>

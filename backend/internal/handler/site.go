@@ -272,12 +272,16 @@ func (h *Handler) DeleteSite(c *gin.Context) {
 		if err := tx.Where("site_id = ?", id).Delete(&model.Visit{}).Error; err != nil {
 			return err
 		}
+		if err := tx.Where("site_id = ?", id).Delete(&model.Asset{}).Error; err != nil {
+			return err
+		}
 		return tx.Delete(&model.Site{}, id).Error
 	})
 	if err != nil {
 		writeDBErr(c, err)
 		return
 	}
+	h.removeSiteUploads(id)
 	success(c, gin.H{"deleted": true})
 }
 

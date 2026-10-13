@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { http } from '../../api'
+import { adminPath } from '../../adminPath'
 import { useContextStore } from '../../stores/context'
 
 const ctx = useContextStore()
@@ -47,7 +48,7 @@ function primaryHost(site) {
       <article class="card stat">
         <strong>{{ weekViews }}</strong>
         <span>近 7 日访问</span>
-        <router-link to="/admin/stats">查看统计</router-link>
+        <router-link :to="adminPath('/stats')">查看统计</router-link>
       </article>
     </div>
     <div class="card">
@@ -72,12 +73,12 @@ function primaryHost(site) {
             <td><span class="pill" :data-on="site.status === 1">{{ site.status === 1 ? '启用' : '停用' }}</span></td>
             <td class="row-actions">
               <a class="btn small" :href="`/?host=${encodeURIComponent(primaryHost(site))}`" target="_blank" rel="noopener">访问</a>
-              <router-link class="btn small" to="/admin/sites">管理</router-link>
+              <router-link class="btn small" :to="adminPath('/sites')">管理</router-link>
             </td>
           </tr>
         </tbody>
       </table>
-      <p v-else class="empty">还没有站点。<router-link to="/admin/sites">创建第一个网站</router-link></p>
+      <p v-else class="empty">还没有站点。<router-link :to="adminPath('/sites')">创建第一个网站</router-link></p>
     </div>
   </div>
 </template>

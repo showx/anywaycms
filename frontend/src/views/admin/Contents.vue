@@ -1,6 +1,7 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { http } from '../../api'
+import { adminPath } from '../../adminPath'
 import { useContextStore } from '../../stores/context'
 import { formatTime } from '../../format'
 
@@ -73,11 +74,11 @@ watch(() => ctx.siteId, () => {
         <h1>内容</h1>
         <p class="muted">文章进栏目，单页适合关于、联系这种固定页面。只发布当前站点的内容。</p>
       </div>
-      <router-link v-if="ctx.siteId" class="btn primary" :to="`/admin/contents/new?type=${type}`">
+      <router-link v-if="ctx.siteId" class="btn primary" :to="adminPath(`/contents/new?type=${type}`)">
         新建{{ type === 'article' ? '文章' : '单页' }}
       </router-link>
     </div>
-    <p v-if="!ctx.siteId" class="card empty">还没有站点。<router-link to="/admin/sites">去创建</router-link></p>
+    <p v-if="!ctx.siteId" class="card empty">还没有站点。<router-link :to="adminPath('/sites')">去创建</router-link></p>
     <div v-else class="card">
       <div class="tabs">
         <button class="btn" :class="{ on: type === 'article' }" type="button" @click="switchType('article')">文章</button>
@@ -105,7 +106,7 @@ watch(() => ctx.siteId, () => {
             <td><span class="pill" :data-on="row.status === 'published'">{{ row.status === 'published' ? '已发布' : '草稿' }}</span></td>
             <td>{{ formatTime(row.updated_at) }}</td>
             <td class="row-actions">
-              <router-link class="btn small" :to="`/admin/contents/${row.id}`">编辑</router-link>
+              <router-link class="btn small" :to="adminPath(`/contents/${row.id}`)">编辑</router-link>
               <a class="btn small" :href="previewHref(row)" target="_blank" rel="noopener">查看</a>
               <button class="btn small danger" type="button" @click="remove(row)">删除</button>
             </td>

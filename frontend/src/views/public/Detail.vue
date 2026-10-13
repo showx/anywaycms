@@ -3,8 +3,7 @@ import { ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { http } from '../../api'
 import { usePublicStore } from '../../stores/public'
-import { publicPath } from '../../siteHost'
-import { setMeta, setTitle } from '../../meta'
+import { contentPath, publicPath, routeSlug } from '../../siteHost'
 import { formatTime } from '../../format'
 
 const route = useRoute()
@@ -19,12 +18,8 @@ async function load() {
   item.value = null
   const kind = route.meta.kind === 'page' ? 'pages' : 'articles'
   try {
-    const res = await http.get(`/api/public/${kind}/${route.params.slug}`)
+    const res = await http.get(`/api/public/${kind}/${routeSlug(route.params.slug)}`)
     item.value = res.data
-    const siteTitle = store.site?.title || ''
-    setTitle([item.value.seo_title || item.value.title, siteTitle].filter(Boolean).join(' - '))
-    setMeta('description', item.value.seo_description || item.value.summary || '')
-    setMeta('keywords', item.value.seo_keywords || store.site?.keywords || '')
   } catch (err) {
     error.value = err.message
   } finally {
@@ -44,7 +39,7 @@ watch(() => [route.params.slug, route.meta.kind, store.host], load, { immediate:
         <router-link :to="publicPath('/')">首页</router-link>
         <template v-if="item.category_slug">
           <span>/</span>
-          <router-link :to="publicPath('/category/' + item.category_slug)">{{ item.category_name }}</router-link>
+          <router-link :to="publicPath(contentPath('category', item.category_slug, store.site?.url_mode))">{{ item.category_name }}</router-link>
         </template>
       </nav>
       <h1>{{ item.title }}</h1>

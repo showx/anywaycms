@@ -17,6 +17,9 @@ type Site struct {
 	Subtitle    string    `gorm:"size:200" json:"subtitle"`
 	Description string    `gorm:"size:500" json:"description"`
 	Keywords    string    `gorm:"size:300" json:"keywords"`
+	SEOTitle    string    `gorm:"size:200" json:"seo_title"`
+	Robots      string    `gorm:"size:16" json:"robots"`
+	URLMode     string    `gorm:"size:16" json:"url_mode"`
 	Phone       string    `gorm:"size:40" json:"phone"`
 	Address     string    `gorm:"size:200" json:"address"`
 	ICP         string    `gorm:"size:80" json:"icp"`
@@ -36,14 +39,17 @@ type Domain struct {
 }
 
 type Category struct {
-	ID          uint      `gorm:"primaryKey" json:"id"`
-	SiteID      uint      `gorm:"not null;uniqueIndex:idx_cat_slug" json:"site_id"`
-	Name        string    `gorm:"size:80;not null" json:"name"`
-	Slug        string    `gorm:"size:80;not null;uniqueIndex:idx_cat_slug" json:"slug"`
-	Description string    `gorm:"size:300" json:"description"`
-	Sort        int       `json:"sort"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID             uint      `gorm:"primaryKey" json:"id"`
+	SiteID         uint      `gorm:"not null;uniqueIndex:idx_cat_slug" json:"site_id"`
+	Name           string    `gorm:"size:80;not null" json:"name"`
+	Slug           string    `gorm:"size:80;not null;uniqueIndex:idx_cat_slug" json:"slug"`
+	Description    string    `gorm:"size:300" json:"description"`
+	SEOTitle       string    `gorm:"size:200" json:"seo_title"`
+	SEOKeywords    string    `gorm:"size:300" json:"seo_keywords"`
+	SEODescription string    `gorm:"size:500" json:"seo_description"`
+	Sort           int       `json:"sort"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 type Content struct {
@@ -70,6 +76,7 @@ type Setting struct {
 	ID           uint      `gorm:"primaryKey" json:"id"`
 	SystemName   string    `gorm:"size:80;not null" json:"system_name"`
 	SystemNotice string    `gorm:"size:160" json:"system_notice"`
+	AdminPath    string    `gorm:"size:32" json:"admin_path"`
 	TrackVisits  int       `gorm:"not null" json:"track_visits"`
 	RetainDays   int       `gorm:"not null" json:"retain_days"`
 	CreatedAt    time.Time `json:"created_at"`
@@ -84,6 +91,16 @@ type Visit struct {
 	Referer   string    `gorm:"size:300" json:"referer"`
 	Visitor   string    `gorm:"size:64;index" json:"-"`
 	CreatedAt time.Time `gorm:"index" json:"created_at"`
+}
+
+type Asset struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	SiteID    uint      `gorm:"index;not null" json:"site_id"`
+	Name      string    `gorm:"size:200;not null" json:"name"`
+	Stored    string    `gorm:"size:80;not null" json:"-"`
+	Mime      string    `gorm:"size:80;not null" json:"mime"`
+	Size      int64     `json:"size"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type Menu struct {

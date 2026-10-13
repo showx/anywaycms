@@ -14,10 +14,13 @@ import (
 )
 
 type categoryInput struct {
-	Name        string `json:"name"`
-	Slug        string `json:"slug"`
-	Description string `json:"description"`
-	Sort        int    `json:"sort"`
+	Name           string `json:"name"`
+	Slug           string `json:"slug"`
+	Description    string `json:"description"`
+	SEOTitle       string `json:"seo_title"`
+	SEOKeywords    string `json:"seo_keywords"`
+	SEODescription string `json:"seo_description"`
+	Sort           int    `json:"sort"`
 }
 
 type menuInput struct {
@@ -157,6 +160,9 @@ func (h *Handler) UpdateCategory(c *gin.Context) {
 	row.Name = next.Name
 	row.Slug = next.Slug
 	row.Description = next.Description
+	row.SEOTitle = next.SEOTitle
+	row.SEOKeywords = next.SEOKeywords
+	row.SEODescription = next.SEODescription
 	row.Sort = next.Sort
 	if err := h.db.Save(&row).Error; err != nil {
 		writeDBErr(c, err)
@@ -174,11 +180,31 @@ func (h *Handler) prepareCategory(in categoryInput) (model.Category, string) {
 	if msg != "" {
 		return model.Category{}, msg
 	}
+	seoTitle, msg := optionalText(in.SEOTitle, 70, "SEO 标题")
+	if msg != "" {
+		return model.Category{}, msg
+	}
+	seoKeywords, msg := optionalText(in.SEOKeywords, 150, "SEO 关键词")
+	if msg != "" {
+		return model.Category{}, msg
+	}
+	seoDescription, msg := optionalText(in.SEODescription, 200, "SEO 描述")
+	if msg != "" {
+		return model.Category{}, msg
+	}
 	slug, ok := normalizeSlug(in.Slug)
 	if !ok {
 		return model.Category{}, "别名不能包含空格或 / ? # 等符号"
 	}
-	return model.Category{Name: name, Slug: slug, Description: desc, Sort: in.Sort}, ""
+	return model.Category{
+		Name:           name,
+		Slug:           slug,
+		Description:    desc,
+		SEOTitle:       seoTitle,
+		SEOKeywords:    seoKeywords,
+		SEODescription: seoDescription,
+		Sort:           in.Sort,
+	}, ""
 }
 
 func (h *Handler) DeleteCategory(c *gin.Context) {

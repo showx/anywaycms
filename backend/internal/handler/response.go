@@ -15,12 +15,13 @@ import (
 )
 
 type Handler struct {
-	db     *gorm.DB
-	secret string
+	db        *gorm.DB
+	secret    string
+	uploadDir string
 }
 
-func New(db *gorm.DB, secret string) *Handler {
-	return &Handler{db: db, secret: secret}
+func New(db *gorm.DB, secret, uploadDir string) *Handler {
+	return &Handler{db: db, secret: secret, uploadDir: uploadDir}
 }
 
 func success(c *gin.Context, data any) {

@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { http } from '../../api'
 import { useAuthStore } from '../../stores/auth'
+import { adminPath, isAdminLocation } from '../../adminPath'
 
 const route = useRoute()
 const router = useRouter()
@@ -16,7 +17,10 @@ const systemNotice = ref('一套后台，多个网站')
 
 const redirect = computed(() => {
   const value = route.query.redirect
-  return typeof value === 'string' && value.startsWith('/admin') && !value.startsWith('/admin/login') ? value : '/admin'
+  const loginPath = adminPath('/login')
+  const home = adminPath('') || '/'
+  if (typeof value !== 'string' || !isAdminLocation(value.split('?')[0]) || value === loginPath || value.startsWith(`${loginPath}?`)) return home
+  return value
 })
 
 onMounted(async () => {

@@ -1,6 +1,7 @@
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
 import { http } from '../../api'
+import { adminPath } from '../../adminPath'
 import { useContextStore } from '../../stores/context'
 
 const ctx = useContextStore()
@@ -118,7 +119,7 @@ watch(() => ctx.siteId, () => {
         <p class="muted">前台导航来自这里。菜单项只能指向当前站点自己的栏目和内容。</p>
       </div>
     </div>
-    <p v-if="!ctx.siteId" class="card empty">还没有站点。<router-link to="/admin/sites">去创建</router-link></p>
+    <p v-if="!ctx.siteId" class="card empty">还没有站点。<router-link :to="adminPath('/sites')">去创建</router-link></p>
     <div v-else class="split">
       <form class="card" @submit.prevent="save">
         <h2>{{ editing ? '编辑菜单' : '新建菜单' }}</h2>

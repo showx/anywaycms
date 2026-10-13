@@ -1,6 +1,7 @@
 <script setup>
 import { reactive, ref, watch } from 'vue'
 import { http } from '../../api'
+import { adminPath } from '../../adminPath'
 import { useContextStore } from '../../stores/context'
 
 const ctx = useContextStore()
@@ -11,7 +12,7 @@ const editing = ref(0)
 const form = reactive(blank())
 
 function blank() {
-  return { name: '', slug: '', description: '', sort: 0 }
+  return { name: '', slug: '', description: '', seo_title: '', seo_keywords: '', seo_description: '', sort: 0 }
 }
 
 function edit(row) {
@@ -20,6 +21,9 @@ function edit(row) {
     name: row.name,
     slug: row.slug,
     description: row.description,
+    seo_title: row.seo_title || '',
+    seo_keywords: row.seo_keywords || '',
+    seo_description: row.seo_description || '',
     sort: row.sort,
   })
   error.value = ''
@@ -86,7 +90,7 @@ watch(() => ctx.siteId, () => {
         <p class="muted">栏目只属于当前站点。换一个站点，栏目和文章都是另一套。</p>
       </div>
     </div>
-    <p v-if="!ctx.siteId" class="card empty">还没有站点。<router-link to="/admin/sites">去创建</router-link></p>
+    <p v-if="!ctx.siteId" class="card empty">还没有站点。<router-link :to="adminPath('/sites')">去创建</router-link></p>
     <div v-else class="split">
       <form class="card" @submit.prevent="save">
         <h2>{{ editing ? '编辑栏目' : '新建栏目' }}</h2>
@@ -94,6 +98,12 @@ watch(() => ctx.siteId, () => {
         <label class="field"><span>别名</span><input v-model="form.slug" placeholder="可留空，保存后自动生成" /></label>
         <label class="field"><span>说明</span><textarea class="hosts" v-model="form.description"></textarea></label>
         <label class="field"><span>排序</span><input v-model.number="form.sort" type="number" /></label>
+        <details class="seo">
+          <summary>搜索引擎信息</summary>
+          <label class="field"><span>SEO 标题</span><input v-model="form.seo_title" placeholder="留空则使用栏目名称" /></label>
+          <label class="field"><span>SEO 关键词</span><input v-model="form.seo_keywords" /></label>
+          <label class="field"><span>SEO 描述</span><textarea class="hosts" v-model="form.seo_description"></textarea></label>
+        </details>
         <p v-if="error" class="msg error">{{ error }}</p>
         <p v-if="saved" class="msg ok">{{ saved }}</p>
         <div class="row-actions">

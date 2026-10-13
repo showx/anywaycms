@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from './stores/auth'
+import { setMeta } from './meta'
 import PublicLayout from './layouts/PublicLayout.vue'
 import AdminLayout from './layouts/AdminLayout.vue'
 import Home from './views/public/Home.vue'
@@ -10,31 +11,33 @@ import Dashboard from './views/admin/Dashboard.vue'
 import Sites from './views/admin/Sites.vue'
 import Categories from './views/admin/Categories.vue'
 import Contents from './views/admin/Contents.vue'
-import ContentEdit from './views/admin/ContentEdit.vue'
+import Assets from './views/admin/Assets.vue'
 import Menus from './views/admin/Menus.vue'
 import Stats from './views/admin/Stats.vue'
+import SEO from './views/admin/SEO.vue'
 import Settings from './views/admin/Settings.vue'
 import Password from './views/admin/Password.vue'
+import { adminBase, adminPath, isAdminLocation } from './adminPath'
 
-const router = createRouter({
-  history: createWebHistory(),
-  scrollBehavior() {
-    return { top: 0 }
+const ContentEdit = () => import('./views/admin/ContentEdit.vue')
+const base = adminBase()
+const routes = [
+  {
+    path: '/',
+    component: PublicLayout,
+    children: [
+      { path: '', name: 'home', component: Home },
+      { path: 'category/:slug', name: 'category', component: Channel },
+      { path: 'article/:slug', name: 'article', component: Detail, meta: { kind: 'article' } },
+      { path: 'page/:slug', name: 'page', component: Detail, meta: { kind: 'page' } },
+    ],
   },
-  routes: [
+]
+if (base) {
+  routes.push(
+    { path: `${base}/login`, name: 'login', component: Login },
     {
-      path: '/',
-      component: PublicLayout,
-      children: [
-        { path: '', name: 'home', component: Home },
-        { path: 'category/:slug', name: 'category', component: Channel },
-        { path: 'article/:slug', name: 'article', component: Detail, meta: { kind: 'article' } },
-        { path: 'page/:slug', name: 'page', component: Detail, meta: { kind: 'page' } },
-      ],
-    },
-    { path: '/admin/login', name: 'login', component: Login },
-    {
-      path: '/admin',
+      path: base,
       component: AdminLayout,
       meta: { admin: true },
       children: [
@@ -44,22 +47,36 @@ const router = createRouter({
         { path: 'contents', name: 'contents', component: Contents },
         { path: 'contents/new', name: 'content-new', component: ContentEdit },
         { path: 'contents/:id', name: 'content-edit', component: ContentEdit },
+        { path: 'assets', name: 'assets', component: Assets },
         { path: 'menus', name: 'menus', component: Menus },
         { path: 'stats', name: 'stats', component: Stats },
+        { path: 'seo', name: 'seo', component: SEO },
         { path: 'settings', name: 'settings', component: Settings },
         { path: 'password', name: 'password', component: Password },
       ],
     },
-  ],
+  )
+}
+
+const router = createRouter({
+  history: createWebHistory(),
+  scrollBehavior() {
+    return { top: 0 }
+  },
+  routes,
+})
+
+router.afterEach((to) => {
+  if (isAdminLocation(to.path)) setMeta('robots', 'noindex,nofollow')
 })
 
 router.beforeEach((to) => {
   const auth = useAuthStore()
   if (to.meta.admin && !auth.token) {
-    return { path: '/admin/login', query: { redirect: to.fullPath } }
+    return { path: adminPath('/login'), query: { redirect: to.fullPath } }
   }
-  if (to.path === '/admin/login' && auth.token) {
-    return { path: '/admin' }
+  if (to.path === adminPath('/login') && auth.token) {
+    return { path: adminPath('') }
   }
   return true
 })
