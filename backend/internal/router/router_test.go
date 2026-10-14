@@ -1,6 +1,7 @@
 package router
 
 import (
+	"archive/zip"
 	"bytes"
 	"encoding/json"
 	"image"
@@ -612,6 +613,128 @@ func TestAssetsStayOnTheirSite(t *testing.T) {
 	if status != http.StatusNotFound {
 		t.Fatalf("deleted file still served %d", status)
 	}
+}
+
+func TestHTMLSiteIsServedOnItsDomain(t *testing.T) {
+	engine, _ := newEngine(t)
+	code, out := doJSON(t, engine, http.MethodPost, "/api/auth/login", "localhost", "", map[string]any{
+		"username": "admin",
+		"password": "admin123",
+	})
+	if code != http.StatusOK {
+		t.Fatalf("login %d %#v", code, out)
+	}
+	token := dataOf(t, out)["token"].(string)
+	code, out = doJSON(t, engine, http.MethodPost, "/api/sites", "localhost", token, map[string]any{
+		"name":   "静态站",
+		"title":  "静态站",
+		"status": 1,
+		"mode":   "html",
+		"hosts":  []string{"demo.local"},
+	})
+	if code != http.StatusOK || dataOf(t, out)["mode"] != "html" {
+		t.Fatalf("create %d %#v", code, out)
+	}
+	siteID := int(dataOf(t, out)["id"].(float64))
+	payload := zipBytes(t, map[string]string{
+		"demo/index.html": `<!DOCTYPE html><link rel="stylesheet" href="css/a.css"><body>整站标记</body>`,
+		"demo/about.html": `<!DOCTYPE html><body>关于标记</body>`,
+		"demo/css/a.css":  `p{background:url(../a.png)}`,
+		"demo/robots.txt": "User-agent: *\nDisallow: /secret\n",
+	})
+	code, out = postFile(t, engine, "/api/sites/"+itoa(siteID)+"/html", token, "site.zip", payload)
+	if code != http.StatusOK || dataOf(t, out)["has_index"] != true {
+		t.Fatalf("zip %d %#v", code, out)
+	}
+
+	status, body := doRaw(t, engine, "/", "demo.local")
+	if status != http.StatusOK || !strings.Contains(body, "整站标记") || strings.Contains(body, "host=") {
+		t.Fatalf("domain home %d %s", status, body)
+	}
+	status, body = doRaw(t, engine, "/about", "demo.local")
+	if status != http.StatusOK || !strings.Contains(body, "关于标记") {
+		t.Fatalf("about %d %s", status, body)
+	}
+	status, body = doRaw(t, engine, "/css/a.css", "demo.local")
+	if status != http.StatusOK || strings.Contains(body, "host=") || !strings.Contains(body, "../a.png") {
+		t.Fatalf("css %d %s", status, body)
+	}
+	status, body = doRaw(t, engine, "/robots.txt", "demo.local")
+	if status != http.StatusOK || !strings.Contains(body, "Disallow: /secret") || strings.Contains(body, "Sitemap:") {
+		t.Fatalf("robots %d %s", status, body)
+	}
+	status, body = doRaw(t, engine, "/", "starlan.local")
+	if status != http.StatusOK || strings.Contains(body, "整站标记") || !strings.Contains(body, "前端还没有构建") {
+		t.Fatalf("cms home changed %d %s", status, body)
+	}
+
+	status, body = doRaw(t, engine, "/?host=demo.local", "127.0.0.1:8080")
+	if status != http.StatusOK || !strings.Contains(body, "整站标记") || !strings.Contains(body, `href="css/a.css?host=demo.local"`) {
+		t.Fatalf("preview %d %s", status, body)
+	}
+	status, body = doRaw(t, engine, "/css/a.css?host=demo.local", "127.0.0.1:8080")
+	if status != http.StatusOK || !strings.Contains(body, "a.png?host=demo.local") {
+		t.Fatalf("preview css %d %s", status, body)
+	}
+
+	code, out = doJSON(t, engine, http.MethodPut, "/api/sites/"+itoa(siteID)+"/html/file", "localhost", token, map[string]any{
+		"path":    "index.html",
+		"content": "<!DOCTYPE html><body>改过的首页</body>",
+	})
+	if code != http.StatusOK {
+		t.Fatalf("save %d %#v", code, out)
+	}
+	status, body = doRaw(t, engine, "/", "demo.local")
+	if status != http.StatusOK || !strings.Contains(body, "改过的首页") {
+		t.Fatalf("edited home %d %s", status, body)
+	}
+	code, out = doJSON(t, engine, http.MethodPut, "/api/sites/"+itoa(siteID)+"/html/file", "localhost", token, map[string]any{
+		"path":    "../secret.html",
+		"content": "no",
+	})
+	if code != http.StatusBadRequest {
+		t.Fatalf("escape %d %#v", code, out)
+	}
+	code, out = postFile(t, engine, "/api/sites/"+itoa(siteID)+"/html", token, "bad.zip", zipBytes(t, map[string]string{
+		"index.html": "replaced",
+		"shell.php":  "<?php echo 1; ?>",
+	}))
+	if code != http.StatusBadRequest {
+		t.Fatalf("php zip %d %#v", code, out)
+	}
+	status, body = doRaw(t, engine, "/", "demo.local")
+	if !strings.Contains(body, "改过的首页") {
+		t.Fatalf("bad zip replaced site %d %s", status, body)
+	}
+
+	code, out = doJSON(t, engine, http.MethodGet, "/api/settings", "localhost", token, nil)
+	if code != http.StatusOK {
+		t.Fatalf("settings %d %#v", code, out)
+	}
+	adminPath, _ := dataOf(t, out)["admin_path"].(string)
+	status, body = doRaw(t, engine, "/"+adminPath, "demo.local")
+	if status != http.StatusOK || strings.Contains(body, "改过的首页") || !strings.Contains(body, "前端还没有构建") {
+		t.Fatalf("admin overwritten %d %s", status, body)
+	}
+}
+
+func zipBytes(t *testing.T, files map[string]string) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for name, body := range files {
+		w, err := zw.Create(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := w.Write([]byte(body)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
 }
 
 func tinyPNG(t *testing.T) []byte {

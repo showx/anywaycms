@@ -90,23 +90,40 @@ func New(db *gorm.DB, secret, staticDir, uploadDir string) *gin.Engine {
 	auth.POST("/sites/:id/menus", h.CreateMenu)
 	auth.PUT("/menus/:id", h.UpdateMenu)
 	auth.DELETE("/menus/:id", h.DeleteMenu)
+	auth.GET("/sites/:id/html", h.ListHTML)
+	auth.POST("/sites/:id/html", h.UploadHTML)
+	auth.DELETE("/sites/:id/html", h.ClearHTML)
+	auth.GET("/sites/:id/html/file", h.GetHTMLFile)
+	auth.PUT("/sites/:id/html/file", h.SaveHTMLFile)
+	auth.DELETE("/sites/:id/html/file", h.DeleteHTMLFile)
 
 	engine.GET("/uploads/:site/:name", h.ServeAsset)
 	engine.GET("/robots.txt", middleware.ResolveSite(db), h.Robots)
 	engine.GET("/sitemap.xml", middleware.ResolveSite(db), h.Sitemap)
 
-	if indexExists(staticDir) {
-		engine.NoRoute(spa(staticDir, h))
-	} else {
-		engine.NoRoute(func(c *gin.Context) {
-			if isAPI(c.Request.URL.Path) {
-				c.JSON(http.StatusNotFound, gin.H{"ok": false, "message": "接口不存在"})
-				return
-			}
-			c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(devHTML))
-		})
-	}
+	engine.NoRoute(front(staticDir, h))
 	return engine
+}
+
+func front(dir string, h *handler.Handler) gin.HandlerFunc {
+	var next gin.HandlerFunc
+	if indexExists(dir) {
+		next = spa(dir, h)
+	} else {
+		next = func(c *gin.Context) {
+			c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(devHTML))
+		}
+	}
+	return func(c *gin.Context) {
+		if isAPI(c.Request.URL.Path) {
+			c.JSON(http.StatusNotFound, gin.H{"ok": false, "message": "接口不存在"})
+			return
+		}
+		if h.ServeHTMLSite(c) {
+			return
+		}
+		next(c)
+	}
 }
 
 func indexExists(dir string) bool {

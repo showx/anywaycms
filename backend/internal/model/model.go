@@ -24,6 +24,7 @@ type Site struct {
 	Address     string    `gorm:"size:200" json:"address"`
 	ICP         string    `gorm:"size:80" json:"icp"`
 	Theme       string    `gorm:"size:500" json:"theme"`
+	Mode        string    `gorm:"size:16" json:"mode"`
 	Status      int       `gorm:"not null" json:"status"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`

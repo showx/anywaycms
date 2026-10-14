@@ -44,6 +44,7 @@ function logout() {
       <nav class="side-nav">
         <router-link :to="adminPath('')" exact-active-class="on">概览</router-link>
         <router-link :to="adminPath('/sites')" active-class="on">站点与域名</router-link>
+        <router-link :to="adminPath('/html')" active-class="on">整站 HTML</router-link>
         <router-link :to="adminPath('/categories')" active-class="on">栏目</router-link>
         <router-link :to="adminPath('/contents')" active-class="on">内容</router-link>
         <router-link :to="adminPath('/assets')" active-class="on">附件</router-link>

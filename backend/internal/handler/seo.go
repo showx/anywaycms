@@ -202,6 +202,14 @@ func (h *Handler) Robots(c *gin.Context) {
 	if !ok {
 		return
 	}
+	if siteMode(site.Mode) == "html" {
+		if h.serveExact(c, site.ID, "robots.txt") {
+			return
+		}
+		c.Header("Cache-Control", "no-cache")
+		c.Data(http.StatusOK, "text/plain; charset=utf-8", []byte("User-agent: *\nAllow: /\n"))
+		return
+	}
 	body := seo.RobotsText(site.Robots != "noindex", h.originFor(c.Request, site)+"/sitemap.xml")
 	c.Header("Cache-Control", "no-cache")
 	c.Data(http.StatusOK, "text/plain; charset=utf-8", []byte(body))
@@ -210,6 +218,13 @@ func (h *Handler) Robots(c *gin.Context) {
 func (h *Handler) Sitemap(c *gin.Context) {
 	site, ok := currentSite(c)
 	if !ok {
+		return
+	}
+	if siteMode(site.Mode) == "html" {
+		if h.serveExact(c, site.ID, "sitemap.xml") {
+			return
+		}
+		c.Status(http.StatusNotFound)
 		return
 	}
 	entries, err := h.sitemapEntries(c.Request, site)

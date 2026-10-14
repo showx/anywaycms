@@ -25,6 +25,7 @@ type siteInput struct {
 	Address     string   `json:"address"`
 	ICP         string   `json:"icp"`
 	Theme       string   `json:"theme"`
+	Mode        string   `json:"mode"`
 	Status      *int     `json:"status"`
 	Hosts       []string `json:"hosts"`
 }
@@ -83,7 +84,7 @@ func normalizeHosts(raw []string) ([]string, string) {
 	return out, ""
 }
 
-func (h *Handler) fillSite(in siteInput, site *model.Site) string {
+func (h *Handler) fillSite(in siteInput, site *model.Site, creating bool) string {
 	var msg string
 	if site.Name, msg = requiredText(in.Name, 40, "站点名称"); msg != "" {
 		return msg
@@ -114,6 +115,16 @@ func (h *Handler) fillSite(in siteInput, site *model.Site) string {
 		return msg
 	}
 	site.Theme = theme
+	switch in.Mode {
+	case "html", "cms":
+		site.Mode = in.Mode
+	case "":
+		if creating || site.Mode == "" {
+			site.Mode = "cms"
+		}
+	default:
+		return "前台形式不正确"
+	}
 	site.Status = 1
 	if in.Status != nil {
 		if *in.Status != 0 && *in.Status != 1 {
@@ -175,7 +186,7 @@ func (h *Handler) CreateSite(c *gin.Context) {
 		return
 	}
 	site := model.Site{}
-	if msg := h.fillSite(in, &site); msg != "" {
+	if msg := h.fillSite(in, &site, true); msg != "" {
 		fail(c, http.StatusBadRequest, msg)
 		return
 	}
@@ -232,7 +243,7 @@ func (h *Handler) UpdateSite(c *gin.Context) {
 	if !bindJSON(c, &in) {
 		return
 	}
-	if msg := h.fillSite(in, &site); msg != "" {
+	if msg := h.fillSite(in, &site, false); msg != "" {
 		fail(c, http.StatusBadRequest, msg)
 		return
 	}
@@ -282,6 +293,7 @@ func (h *Handler) DeleteSite(c *gin.Context) {
 		return
 	}
 	h.removeSiteUploads(id)
+	h.removeHTMLSite(id)
 	success(c, gin.H{"deleted": true})
 }
 

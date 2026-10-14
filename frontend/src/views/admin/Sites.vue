@@ -32,6 +32,7 @@ function blank() {
     address: '',
     icp: '',
     status: 1,
+    mode: 'cms',
     layout: 'corporate',
     primary: '#0f6e6b',
     hostsText: '',
@@ -50,6 +51,7 @@ function fill(site) {
     address: site.address,
     icp: site.icp,
     status: site.status,
+    mode: site.mode === 'html' ? 'html' : 'cms',
     layout: theme.layout,
     primary: theme.primary,
     hostsText: '',
@@ -72,6 +74,12 @@ function createNew() {
   saved.value = ''
 }
 
+function visitURL(host) {
+  const query = `/?host=${encodeURIComponent(host)}`
+  if (current.value?.mode === 'html' && import.meta.env.DEV) return `http://127.0.0.1:8080${query}`
+  return query
+}
+
 function applyPreset(preset) {
   form.layout = preset.layout
   form.primary = preset.primary
@@ -89,6 +97,7 @@ function payload() {
     icp: form.icp,
     theme: themeJSON(form.layout, form.primary),
     status: form.status,
+    mode: form.mode,
   }
 }
 
@@ -149,7 +158,7 @@ async function removeDomain(domain) {
 
 async function removeSite() {
   if (!current.value) return
-  if (!window.confirm(`删除「${current.value.title}」？该站点的域名、栏目、内容和菜单都会一起删除。`)) return
+  if (!window.confirm(`删除「${current.value.title}」？该站点的域名、栏目、内容、菜单和上传的整站文件都会一起删除。`)) return
   error.value = ''
   try {
     await http.delete(`/api/sites/${current.value.id}`)
@@ -196,7 +205,7 @@ onMounted(async () => {
           @click="select(site)"
         >
           {{ site.title }}
-          <small>{{ (site.domains || []).find((item) => item.is_primary)?.host || '未绑定域名' }}</small>
+          <small>{{ (site.domains || []).find((item) => item.is_primary)?.host || '未绑定域名' }}{{ site.mode === 'html' ? ' · 整站 HTML' : '' }}</small>
         </button>
       </aside>
       <section class="card" v-if="draft || current">
@@ -223,6 +232,14 @@ onMounted(async () => {
               <input class="color-input" type="color" v-model="form.primary" />
             </div>
           </div>
+          <label class="field">
+            <span>前台形式</span>
+            <select v-model="form.mode">
+              <option value="cms">栏目内容</option>
+              <option value="html">整站 HTML</option>
+            </select>
+          </label>
+          <p v-if="form.mode === 'html'" class="muted wide">这个域名直接打开上传的 HTML，不再使用栏目和文章。到 <router-link :to="adminPath('/html')">整站 HTML</router-link> 上传或修改页面。</p>
           <label class="check wide"><input type="checkbox" v-model="enabled" /> 启用。停用后，绑在这个站点上的域名无法打开。</label>
           <label v-if="draft" class="field wide">
             <span>绑定域名，一行一个。第一行是主域名</span>
@@ -247,7 +264,7 @@ onMounted(async () => {
                 <td>{{ domain.host }}</td>
                 <td><span class="pill" :data-on="domain.is_primary">{{ domain.is_primary ? '主域名' : '别名' }}</span></td>
                 <td class="row-actions">
-                  <a class="btn small" :href="`/?host=${encodeURIComponent(domain.host)}`" target="_blank" rel="noopener">访问</a>
+                  <a class="btn small" :href="visitURL(domain.host)" target="_blank" rel="noopener">访问</a>
                   <button v-if="!domain.is_primary" class="btn small" type="button" @click="makePrimary(domain.id)">设为主域名</button>
                   <button class="btn small danger" type="button" @click="removeDomain(domain)">解除</button>
                 </td>

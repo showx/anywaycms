@@ -12,6 +12,7 @@ import Sites from './views/admin/Sites.vue'
 import Categories from './views/admin/Categories.vue'
 import Contents from './views/admin/Contents.vue'
 import Assets from './views/admin/Assets.vue'
+import HtmlSite from './views/admin/HtmlSite.vue'
 import Menus from './views/admin/Menus.vue'
 import Stats from './views/admin/Stats.vue'
 import SEO from './views/admin/SEO.vue'
@@ -43,6 +44,7 @@ if (base) {
       children: [
         { path: '', name: 'dashboard', component: Dashboard },
         { path: 'sites', name: 'sites', component: Sites },
+        { path: 'html', name: 'html-site', component: HtmlSite },
         { path: 'categories', name: 'categories', component: Categories },
         { path: 'contents', name: 'contents', component: Contents },
         { path: 'contents/new', name: 'content-new', component: ContentEdit },

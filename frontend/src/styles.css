@@ -142,6 +142,8 @@ input[type="checkbox"], input[type="color"] { width: auto; }
 .snippet strong { color: #1a0dab; font-size: 18px; font-weight: 500; }
 .snippet p { margin: 4px 0 0; color: #3d4248; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .hidden-file { display: none; }
+.html-grid { display: grid; grid-template-columns: minmax(260px, 380px) 1fr; gap: 16px; align-items: start; }
+.code-editor { min-height: 460px; font-family: Consolas, "Cascadia Mono", monospace; font-size: 13px; line-height: 1.55; }
 .asset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
 .asset-card { background: #fff; border: 1px solid #e4e7eb; border-radius: 12px; overflow: hidden; }
 .asset-card img, .asset-file { width: 100%; height: 120px; object-fit: cover; background: #f3f5f4; }
@@ -212,7 +214,7 @@ a.story p { margin: 0 0 8px; color: #3d4a46; }
   .sidebar { position: sticky; top: 0; z-index: 2; }
   .side-nav { flex-direction: row; overflow: auto; min-width: 0; max-width: 100%; }
   .side-nav a { white-space: nowrap; }
-  .split, .form-grid, .stat-grid, .card-grid, .login { grid-template-columns: 1fr; }
+  .split, .form-grid, .stat-grid, .card-grid, .login, .html-grid { grid-template-columns: 1fr; }
   .login-intro { padding: 32px 20px; }
   .login-intro h1 { font-size: 32px; }
   .layout-corporate .mast-inner { flex-direction: column; align-items: flex-start; }
